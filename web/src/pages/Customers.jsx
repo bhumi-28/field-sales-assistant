@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 function Customers() {
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState({ name: '', phone: '', email: '', city: '' });
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
 
   const loadCustomers = () => {
@@ -25,12 +26,28 @@ function Customers() {
     e.preventDefault();
     setError('');
     try {
-      await axiosClient.post('/customers', form);
+      if (editingId) {
+        await axiosClient.put(`/customers/${editingId}`, form);
+      } else {
+        await axiosClient.post('/customers', form);
+      }
       setForm({ name: '', phone: '', email: '', city: '' });
+      setEditingId(null);
       loadCustomers();
     } catch (err) {
-      setError('Failed to create customer');
+      setError(editingId ? 'Failed to update customer' : 'Failed to create customer');
     }
+  };
+
+  const startEdit = (c) => {
+    setEditingId(c.id);
+    setForm({ name: c.name, phone: c.phone, email: c.email, city: c.city });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm({ name: '', phone: '', email: '', city: '' });
   };
 
   const inputStyle = {
@@ -42,12 +59,13 @@ function Customers() {
     <Layout>
       <h2>Customers</h2>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
         <input style={inputStyle} name="name" placeholder="Name" value={form.name} onChange={handleChange} required />
         <input style={inputStyle} name="phone" placeholder="Phone" value={form.phone} onChange={handleChange} required />
         <input style={inputStyle} name="email" placeholder="Email" value={form.email} onChange={handleChange} required />
         <input style={inputStyle} name="city" placeholder="City" value={form.city} onChange={handleChange} required />
-        <button type="submit">Add Customer</button>
+        <button type="submit">{editingId ? 'Update Customer' : 'Add Customer'}</button>
+        {editingId && <button type="button" onClick={cancelEdit}>Cancel</button>}
       </form>
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -60,6 +78,7 @@ function Customers() {
             <th style={{ padding: 8 }}>Email</th>
             <th style={{ padding: 8 }}>City</th>
             <th style={{ padding: 8 }}>Status</th>
+            <th style={{ padding: 8 }}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -70,6 +89,9 @@ function Customers() {
               <td style={{ padding: 8 }}>{c.email}</td>
               <td style={{ padding: 8 }}>{c.city}</td>
               <td style={{ padding: 8 }}>{c.status}</td>
+              <td style={{ padding: 8 }}>
+                <button onClick={() => startEdit(c)}>Edit</button>
+              </td>
             </tr>
           ))}
         </tbody>

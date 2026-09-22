@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Visits from './pages/Visits';
 import Tasks from './pages/Tasks';
+import Reps from './pages/Reps';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -19,6 +20,7 @@ function App() {
         <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
         <Route path="/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/reps" element={<ProtectedRoute><Reps /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

@@ -9,6 +9,7 @@ function Visits() {
     customerId: '', visitDate: '', purpose: '', discussion: '',
     productInterest: '', competitor: '', requirement: '', remarks: '', followUpDate: ''
   });
+  const [filters, setFilters] = useState({ customerId: '', dateFrom: '', dateTo: '' });
   const [error, setError] = useState('');
   const [insights, setInsights] = useState({});
   const [analyzing, setAnalyzing] = useState(null);
@@ -24,6 +25,10 @@ function Visits() {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -80,6 +85,16 @@ function Visits() {
     borderRadius: 4, color: '#e7eef7',
   };
 
+  // Apply filters client-side (customer, date range) — visitor rep filter
+  // isn't meaningful yet since we don't have a reps list endpoint.
+  const filteredVisits = visits.filter((v) => {
+    if (filters.customerId && String(v.customerId) !== String(filters.customerId)) return false;
+    const visitDateOnly = v.visitDate?.split('T')[0];
+    if (filters.dateFrom && visitDateOnly < filters.dateFrom) return false;
+    if (filters.dateTo && visitDateOnly > filters.dateTo) return false;
+    return true;
+  });
+
   return (
     <Layout>
       <h2>Visits</h2>
@@ -105,7 +120,26 @@ function Visits() {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {visits.map((v) => (
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20,
+        padding: 12, background: '#1a1d24', border: '1px solid #2a2d36', borderRadius: 6
+      }}>
+        <span style={{ fontSize: 13, opacity: 0.7 }}>Filter:</span>
+        <select style={inputStyle} name="customerId" value={filters.customerId} onChange={handleFilterChange}>
+          <option value="">All Customers</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <input style={inputStyle} type="date" name="dateFrom" value={filters.dateFrom} onChange={handleFilterChange} />
+        <span style={{ opacity: 0.5 }}>to</span>
+        <input style={inputStyle} type="date" name="dateTo" value={filters.dateTo} onChange={handleFilterChange} />
+        {(filters.customerId || filters.dateFrom || filters.dateTo) && (
+          <button onClick={() => setFilters({ customerId: '', dateFrom: '', dateTo: '' })}>Clear</button>
+        )}
+      </div>
+
+      {filteredVisits.map((v) => (
         <div key={v.id} style={{ border: '1px solid #2a2d36', background: '#1a1d24', borderRadius: 6, padding: 16, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -133,6 +167,8 @@ function Visits() {
           )}
         </div>
       ))}
+
+      {filteredVisits.length === 0 && <p style={{ opacity: 0.6 }}>No visits match the selected filters.</p>}
     </Layout>
   );
 }

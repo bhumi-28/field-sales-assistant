@@ -5,3 +5,5 @@ target/
 .idea/
 build/
 venv/
+__pycache__/
+*.pyc

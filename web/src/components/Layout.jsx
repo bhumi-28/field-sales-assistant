@@ -15,6 +15,7 @@ function Layout({ children }) {
     { path: '/customers', label: 'Customers' },
     { path: '/visits', label: 'Visits' },
     { path: '/tasks', label: 'Tasks' },
+    { path: '/reps', label: 'Reps' },
   ];
 
   return (
