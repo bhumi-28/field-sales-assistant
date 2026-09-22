@@ -35,6 +35,11 @@ public class AiInsight {
     @Enumerated(EnumType.STRING)
     private Priority priority;
 
+    public enum CompetitiveRisk { LOW, MEDIUM, HIGH }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "competitive_risk")
+    private CompetitiveRisk competitiveRisk;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
