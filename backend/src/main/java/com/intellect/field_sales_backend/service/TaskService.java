@@ -62,6 +62,15 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    // Used by GET /api/tasks?assignedUserId=... so a sales rep's app only
+    // fetches their own follow-ups instead of filtering the full list client-side.
+    public List<TaskResponse> getByAssignedUser(Long assignedUserId) {
+        return taskRepository.findByAssignedUser_Id(assignedUserId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));

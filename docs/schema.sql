@@ -1,4 +1,4 @@
-1. users  (7 columns)
+-- 1. users
 
 CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -8,10 +8,10 @@ CREATE TABLE users (
     role            ENUM('ADMIN','SALES_REP') NOT NULL,
     status          ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+);
 
 
- 2. customers  (8 columns)
+-- 2. customers
 
 CREATE TABLE customers (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -23,11 +23,10 @@ CREATE TABLE customers (
     status            ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     assigned_user_id  BIGINT,
     CONSTRAINT fk_customer_user FOREIGN KEY (assigned_user_id) REFERENCES users(id)
-) ;
+);
 
 
-
- 3. visits  (11 columns)
+-- 3. visits
 
 CREATE TABLE visits (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -45,10 +44,10 @@ CREATE TABLE visits (
     CONSTRAINT fk_visit_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_followup_after_visit
         CHECK (follow_up_date IS NULL OR follow_up_date >= DATE(visit_date))
-) ;
+);
 
 
- 4. tasks  (8 columns)
+-- 4. tasks
 
 CREATE TABLE tasks (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -65,7 +64,9 @@ CREATE TABLE tasks (
 );
 
 
- 5. ai_insights  (9 columns)
+-- 5. ai_insights
+-- NOTE: competitive_risk added (not in the original spec schema) to store the
+-- AI service's competitiveRisk output, which the web/mobile UI already display.
 
 CREATE TABLE ai_insights (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -77,5 +78,5 @@ CREATE TABLE ai_insights (
     priority          ENUM('LOW','MEDIUM','HIGH'),
     competitive_risk  ENUM('LOW','MEDIUM','HIGH'),
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_insight_visit FOREIGN KEY (visit_id) REFERENCES visits(id) 
+    CONSTRAINT fk_insight_visit FOREIGN KEY (visit_id) REFERENCES visits(id)
 );

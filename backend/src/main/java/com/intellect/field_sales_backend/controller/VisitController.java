@@ -1,5 +1,6 @@
 package com.intellect.field_sales_backend.controller;
 
+import com.intellect.field_sales_backend.dto.VisitCreateResponse;
 import com.intellect.field_sales_backend.dto.VisitRequest;
 import com.intellect.field_sales_backend.dto.VisitResponse;
 import com.intellect.field_sales_backend.service.VisitService;
@@ -19,7 +20,7 @@ public class VisitController {
     private final VisitService visitService;
 
     @PostMapping
-    public ResponseEntity<VisitResponse> create(@Valid @RequestBody VisitRequest request) {
+    public ResponseEntity<VisitCreateResponse> create(@Valid @RequestBody VisitRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(visitService.create(request));
     }
 

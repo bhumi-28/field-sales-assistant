@@ -18,4 +18,11 @@ public class VisitResponse {
     private String requirement;
     private String remarks;
     private LocalDate followUpDate;
+
+    // AI insight for this visit (null until the visit has been analyzed)
+    private String sentiment;
+    private String opportunity;
+    private String competitiveRisk;
+    private String aiSummary;
+    private String aiRecommendation;
 }

@@ -23,7 +23,10 @@ public class TaskController {
     }
 
     @GetMapping
-    public List<TaskResponse> getAll() {
+    public List<TaskResponse> getAll(@RequestParam(required = false) Long assignedUserId) {
+        if (assignedUserId != null) {
+            return taskService.getByAssignedUser(assignedUserId);
+        }
         return taskService.getAll();
     }
 

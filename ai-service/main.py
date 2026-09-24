@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import os
 import json
 import requests
+from datetime import date
 
 load_dotenv()
 
@@ -78,6 +79,10 @@ Remarks: {visit.remarks or 'N/A'}"""
 class AssistantRequest(BaseModel):
     question: str
     token: str  # the caller's JWT, forwarded so we can call the backend as them
+    # Who is asking. Filled in by Spring Boot from the JWT, never by the client.
+    user_id: int | None = None
+    user_name: str | None = None
+    user_role: str | None = None
 
 
 def _backend_get(path: str, token: str):
@@ -90,17 +95,30 @@ def _backend_get(path: str, token: str):
     return resp.json()
 
 
-def get_customers(token: str):
-    return _backend_get("/customers", token)
+def _is_rep(req: AssistantRequest) -> bool:
+    return req.user_role == "SALES_REP" and req.user_id is not None
 
 
-def get_visits(token: str):
-    return _backend_get("/visits", token)
+def get_customers(req: AssistantRequest):
+    data = _backend_get("/customers", req.token)
+    if _is_rep(req):  # a sales rep only sees their own customers
+        data = [c for c in data if c.get("assignedUserId") == req.user_id]
+    return data
 
 
-def get_pending_tasks(token: str):
-    tasks = _backend_get("/tasks", token)
-    return [t for t in tasks if t.get("status") in ("OPEN", "IN_PROGRESS")]
+def get_visits(req: AssistantRequest):
+    data = _backend_get("/visits", req.token)
+    if _is_rep(req):
+        data = [v for v in data if v.get("userId") == req.user_id]
+    return data
+
+
+def get_pending_tasks(req: AssistantRequest):
+    tasks = _backend_get("/tasks", req.token)
+    tasks = [t for t in tasks if t.get("status") in ("OPEN", "IN_PROGRESS")]
+    if _is_rep(req):
+        tasks = [t for t in tasks if t.get("assignedUserId") == req.user_id]
+    return tasks
 
 
 TOOLS = [
@@ -143,10 +161,29 @@ When reasoning about relative time ("this week", "last 30 days"), use the dates 
 Keep answers short and to the point, written for a busy sales manager."""
 
 
+def build_system_prompt(req: AssistantRequest) -> str:
+    """Base prompt + who is asking + today's date, so 'my' and 'this week' make sense."""
+    lines = [ASSISTANT_SYSTEM_PROMPT, f"Today's date is {date.today().isoformat()}."]
+    if req.user_id is not None:
+        who = f"The person asking is {req.user_name or 'the current user'} (user id {req.user_id}, role {req.user_role})."
+        if _is_rep(req):
+            who += (
+                " Everything the tools return is already limited to this user's own customers, visits"
+                " and tasks. When they say 'my' or 'me', it refers to this data. Never ask them for their user ID."
+            )
+        else:
+            who += (
+                " This user is an admin who sees data for the whole team. If they say 'my', explain that"
+                " tasks belong to individual sales reps and answer for the whole team instead."
+            )
+        lines.append(who)
+    return "\n\n".join(lines)
+
+
 @app.post("/assistant")
 def ai_assistant(req: AssistantRequest):
     messages = [
-        {"role": "system", "content": ASSISTANT_SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(req)},
         {"role": "user", "content": req.question},
     ]
 
@@ -171,7 +208,7 @@ def ai_assistant(req: AssistantRequest):
 
         try:
             function_response = (
-                function_to_call(req.token)
+                function_to_call(req)
                 if function_to_call
                 else {"error": f"Unknown tool: {function_name}"}
             )
@@ -187,7 +224,7 @@ def ai_assistant(req: AssistantRequest):
     # tool-call message chain and handing the data over as plain text
     # avoids that entirely.
     followup_messages = [
-        {"role": "system", "content": ASSISTANT_SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(req)},
         {
             "role": "user",
             "content": (

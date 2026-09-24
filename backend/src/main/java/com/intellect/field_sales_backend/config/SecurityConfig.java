@@ -58,15 +58,27 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/**", "/error").permitAll()
                 // ADMIN only
                 .requestMatchers(HttpMethod.POST, "/api/customers", "/api/customers/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/customers/**").hasRole("ADMIN")
                 .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
-                .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
+                .requestMatchers("/api/dashboard/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/ai/insights").hasRole("ADMIN")
                 // everything else: any logged-in user (ADMIN or SALES_REP)
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e) -> {
+                    res.setStatus(401);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"message\":\"Unauthorized - please log in again\"}");
+                })
+                .accessDeniedHandler((req, res, e) -> {
+                    res.setStatus(403);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"message\":\"Forbidden - your role cannot access this\"}");
+                })
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

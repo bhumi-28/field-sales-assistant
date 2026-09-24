@@ -30,10 +30,16 @@ public class AiInsightService {
     @Value("${ai.service.url}")
     private String aiServiceUrl;
 
+    // Used by POST /api/ai/analyze-visit (manual re-analyze by visitId)
     public AiInsightResponse analyzeVisit(Long visitId) {
         Visit visit = visitRepository.findById(visitId)
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id: " + visitId));
+        return analyzeAndSave(visit);
+    }
 
+    // Used by VisitService right after a visit is saved.
+    // Throws ResponseStatusException(502) if the AI service is down or returns bad data.
+    public AiInsightResponse analyzeAndSave(Visit visit) {
         // Build request body matching the Python service's expected field names
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("purpose", visit.getPurpose());
@@ -58,20 +64,23 @@ public class AiInsightService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI service returned an empty response");
         }
 
-        // Validate enum values before persisting (per spec requirement)
-        AiInsight.Sentiment sentiment = parseEnum(AiInsight.Sentiment.class, (String) aiResult.get("sentiment"), "sentiment");
-        AiInsight.Opportunity opportunity = parseEnum(AiInsight.Opportunity.class, (String) aiResult.get("opportunity"), "opportunity");
-        AiInsight.Priority priority = parseEnum(AiInsight.Priority.class, (String) aiResult.get("priority"), "priority");
-        AiInsight.CompetitiveRisk competitiveRisk = parseEnum(AiInsight.CompetitiveRisk.class, (String) aiResult.get("competitiveRisk"), "competitiveRisk");
+        // Validate enum values before persisting (per spec requirement).
+        // Bad AI output is an upstream problem -> 502, not the client's fault.
+        AiInsight.Sentiment sentiment = parseEnum(AiInsight.Sentiment.class, aiResult.get("sentiment"), "sentiment", null);
+        AiInsight.Opportunity opportunity = parseEnum(AiInsight.Opportunity.class, aiResult.get("opportunity"), "opportunity", null);
+        AiInsight.Priority priority = parseEnum(AiInsight.Priority.class, aiResult.get("priority"), "priority", null);
+        // competitiveRisk is "where applicable" in the spec -> default LOW if the AI leaves it out
+        AiInsight.CompetitiveRisk competitiveRisk = parseEnum(AiInsight.CompetitiveRisk.class,
+                aiResult.get("competitiveRisk"), "competitiveRisk", AiInsight.CompetitiveRisk.LOW);
 
         // Update existing insight if this visit was already analyzed, else create new
-        AiInsight insight = aiInsightRepository.findByVisitId(visitId)
+        AiInsight insight = aiInsightRepository.findByVisitId(visit.getId())
                 .orElse(AiInsight.builder().visit(visit).build());
 
-        insight.setSummary((String) aiResult.get("summary"));
+        insight.setSummary(aiResult.get("summary") != null ? String.valueOf(aiResult.get("summary")) : null);
         insight.setSentiment(sentiment);
         insight.setOpportunity(opportunity);
-        insight.setRecommendation((String) aiResult.get("recommendation"));
+        insight.setRecommendation(aiResult.get("recommendation") != null ? String.valueOf(aiResult.get("recommendation")) : null);
         insight.setPriority(priority);
         insight.setCompetitiveRisk(competitiveRisk);
 
@@ -87,18 +96,23 @@ public class AiInsightService {
                 .collect(Collectors.toList());
     }
 
-    private <E extends Enum<E>> E parseEnum(Class<E> enumClass, String value, String fieldName) {
-        if (value == null) {
-            throw new IllegalArgumentException("AI service did not return a value for: " + fieldName);
+    private <E extends Enum<E>> E parseEnum(Class<E> enumClass, Object raw, String fieldName, E defaultValue) {
+        if (raw == null) {
+            if (defaultValue != null) {
+                return defaultValue;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "AI service did not return a value for: " + fieldName);
         }
         try {
-            return Enum.valueOf(enumClass, value.toUpperCase());
+            return Enum.valueOf(enumClass, String.valueOf(raw).trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("AI service returned an invalid " + fieldName + ": " + value);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "AI service returned an invalid " + fieldName + ": " + raw);
         }
     }
 
-    private AiInsightResponse toResponse(AiInsight insight) {
+    public AiInsightResponse toResponse(AiInsight insight) {
         Visit visit = insight.getVisit();
         return AiInsightResponse.builder()
                 .id(insight.getId())
@@ -113,7 +127,7 @@ public class AiInsightService {
                 .opportunity(insight.getOpportunity().name())
                 .recommendation(insight.getRecommendation())
                 .priority(insight.getPriority().name())
-                .competitiveRisk(insight.getCompetitiveRisk().name())
+                .competitiveRisk(insight.getCompetitiveRisk() != null ? insight.getCompetitiveRisk().name() : null)
                 .build();
     }
 }
