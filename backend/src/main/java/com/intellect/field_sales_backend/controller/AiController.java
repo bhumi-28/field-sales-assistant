@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
@@ -17,6 +19,11 @@ public class AiController {
     @PostMapping("/analyze-visit")
     public AiInsightResponse analyzeVisit(@RequestBody AnalyzeVisitRequest request) {
         return aiInsightService.analyzeVisit(request.getVisitId());
+    }
+
+    @GetMapping("/insights")
+    public List<AiInsightResponse> getAllInsights() {
+        return aiInsightService.getAll();
     }
 
     @Getter @Setter

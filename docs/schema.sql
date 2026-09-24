@@ -1,16 +1,5 @@
--- =====================================================
--- AI-Powered Field Sales Assistant — Database Schema
--- 5 tables, 42 columns total
--- =====================================================
+1. users  (7 columns)
 
-CREATE DATABASE IF NOT EXISTS field_sales_assistant
-    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE field_sales_assistant;
-
--- ---------------------------------------------------
--- 1. users  (7 columns)
--- ---------------------------------------------------
 CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(100)  NOT NULL,
@@ -19,11 +8,11 @@ CREATE TABLE users (
     role            ENUM('ADMIN','SALES_REP') NOT NULL,
     status          ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ;
 
--- ---------------------------------------------------
--- 2. customers  (8 columns)
--- ---------------------------------------------------
+
+ 2. customers  (8 columns)
+
 CREATE TABLE customers (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     name              VARCHAR(150)  NOT NULL,
@@ -34,13 +23,12 @@ CREATE TABLE customers (
     status            ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     assigned_user_id  BIGINT,
     CONSTRAINT fk_customer_user FOREIGN KEY (assigned_user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ;
 
-CREATE INDEX idx_customers_name ON customers(name);
 
--- ---------------------------------------------------
--- 3. visits  (11 columns)
--- ---------------------------------------------------
+
+ 3. visits  (11 columns)
+
 CREATE TABLE visits (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     customer_id       BIGINT NOT NULL,
@@ -57,15 +45,11 @@ CREATE TABLE visits (
     CONSTRAINT fk_visit_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_followup_after_visit
         CHECK (follow_up_date IS NULL OR follow_up_date >= DATE(visit_date))
-) ENGINE=InnoDB;
+) ;
 
-CREATE INDEX idx_visits_customer ON visits(customer_id);
-CREATE INDEX idx_visits_user ON visits(user_id);
-CREATE INDEX idx_visits_date ON visits(visit_date);
 
--- ---------------------------------------------------
--- 4. tasks  (8 columns)
--- ---------------------------------------------------
+ 4. tasks  (8 columns)
+
 CREATE TABLE tasks (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     customer_id       BIGINT NOT NULL,
@@ -78,27 +62,20 @@ CREATE TABLE tasks (
     CONSTRAINT fk_task_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
     CONSTRAINT fk_task_visit FOREIGN KEY (visit_id) REFERENCES visits(id),
     CONSTRAINT fk_task_user FOREIGN KEY (assigned_user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+);
 
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 
--- ---------------------------------------------------
--- 5. ai_insights  (8 columns)
--- ---------------------------------------------------
+ 5. ai_insights  (9 columns)
+
 CREATE TABLE ai_insights (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    visit_id        BIGINT NOT NULL UNIQUE,
-    summary         TEXT,
-    sentiment       ENUM('POSITIVE','NEUTRAL','NEGATIVE'),
-    opportunity     ENUM('LOW','MEDIUM','HIGH'),
-    recommendation  TEXT,
-    priority        ENUM('LOW','MEDIUM','HIGH'),
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_insight_visit FOREIGN KEY (visit_id) REFERENCES visits(id)
-
-    -- NOTE: the spec's example AI response (section 13.1) also returns
-    -- "competitiveRisk", but section 11's column list for ai_insights
-    -- does NOT include it. Confirm with mentor whether to add:
-    -- competitive_risk ENUM('LOW','MEDIUM','HIGH')
-) ENGINE=InnoDB;
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    visit_id          BIGINT NOT NULL UNIQUE,
+    summary           TEXT,
+    sentiment         ENUM('POSITIVE','NEUTRAL','NEGATIVE'),
+    opportunity       ENUM('LOW','MEDIUM','HIGH'),
+    recommendation    TEXT,
+    priority          ENUM('LOW','MEDIUM','HIGH'),
+    competitive_risk  ENUM('LOW','MEDIUM','HIGH'),
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_insight_visit FOREIGN KEY (visit_id) REFERENCES visits(id) 
+);

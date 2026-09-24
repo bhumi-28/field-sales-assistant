@@ -3,38 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import AuthPanel from '../components/AuthPanel';
 
-function defaultRouteForRole(role) {
-  return role === 'SALES_REP' ? '/visits' : '/dashboard';
-}
-
-function Login() {
+function Register() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('ADMIN');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await axiosClient.post('/auth/login', { email, password, role });
-
-      if (response.data.role !== role) {
-        setError(`This account is registered as ${response.data.role}, not ${role}. Select the correct role and try again.`);
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userId', response.data.userId);
-      localStorage.setItem('userName', response.data.name);
-      localStorage.setItem('userRole', response.data.role);
-      navigate(defaultRouteForRole(response.data.role));
+      await axiosClient.post('/auth/register', { name, email, password, role: 'SALES_REP' });
+      setSuccess('Account created. Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
     } catch (err) {
-      setError('Invalid email or password');
+      if (err.response?.status === 400 || err.response?.status === 409) {
+        setError('This email is already registered.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -42,37 +47,27 @@ function Login() {
 
   return (
     <div className="fsa-auth-shell">
-      <AuthPanel variant="login" />
+      <AuthPanel variant="register" />
 
       <div className="fsa-auth-form-side">
         <div className="fsa-auth-form-inner">
           <h2 style={{ fontFamily: 'var(--fsa-display)', fontWeight: 600, fontSize: 24, color: 'var(--fsa-paper)', margin: '0 0 6px' }}>
-            Welcome back
+            Create your account
           </h2>
           <p style={{ fontSize: 14, color: 'var(--fsa-fog)', margin: '0 0 28px' }}>
-            Sign in to your workspace.
+            Sign up as a sales representative.
           </p>
 
           <form onSubmit={handleSubmit}>
-            <label className="fsa-label">Login as</label>
-            <div className="fsa-toggle" role="group" aria-label="Select role">
-              <button
-                type="button"
-                className="fsa-toggle-btn"
-                aria-pressed={role === 'ADMIN'}
-                onClick={() => setRole('ADMIN')}
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                className="fsa-toggle-btn"
-                aria-pressed={role === 'SALES_REP'}
-                onClick={() => setRole('SALES_REP')}
-              >
-                Sales Rep
-              </button>
-            </div>
+            <label className="fsa-label">Full name</label>
+            <input
+              className="fsa-input"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              required
+            />
 
             <label className="fsa-label" style={{ marginTop: 18 }}>Email</label>
             <input
@@ -94,16 +89,27 @@ function Login() {
               required
             />
 
+            <label className="fsa-label" style={{ marginTop: 18 }}>Confirm password</label>
+            <input
+              className="fsa-input"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+
             {error && <div className="fsa-banner fsa-banner-error">{error}</div>}
+            {success && <div className="fsa-banner fsa-banner-success">{success}</div>}
 
             <button type="submit" className="fsa-btn-primary" disabled={loading} style={{ marginTop: 22 }}>
-              {loading ? 'Signing in...' : 'Log in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
 
             <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13.5, color: 'var(--fsa-fog)' }}>
-              New here?{' '}
-              <button type="button" className="fsa-link" onClick={() => navigate('/register')}>
-                Create an account
+              Already have an account?{' '}
+              <button type="button" className="fsa-link" onClick={() => navigate('/login')}>
+                Log in
               </button>
             </p>
           </form>
@@ -113,4 +119,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default Register;

@@ -5,18 +5,25 @@ import Layout from '../components/Layout';
 function Visits() {
   const [visits, setVisits] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [reps, setReps] = useState([]);
   const [form, setForm] = useState({
     customerId: '', visitDate: '', purpose: '', discussion: '',
     productInterest: '', competitor: '', requirement: '', remarks: '', followUpDate: ''
   });
-  const [filters, setFilters] = useState({ customerId: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ customerId: '', userId: '', dateFrom: '', dateTo: '' });
   const [error, setError] = useState('');
   const [insights, setInsights] = useState({});
   const [analyzing, setAnalyzing] = useState(null);
 
+  const userRole = localStorage.getItem('userRole');
+  const canCreateVisit = userRole === 'SALES_REP';
+
   const loadData = () => {
     axiosClient.get('/visits').then((res) => setVisits(res.data)).catch(() => setError('Failed to load visits'));
     axiosClient.get('/customers').then((res) => setCustomers(res.data)).catch(() => {});
+    if (userRole === 'ADMIN') {
+      axiosClient.get('/users', { params: { role: 'SALES_REP' } }).then((res) => setReps(res.data)).catch(() => {});
+    }
   };
 
   useEffect(() => {
@@ -33,12 +40,13 @@ function Visits() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canCreateVisit) return;
     setError('');
     try {
       const payload = {
         ...form,
         customerId: Number(form.customerId),
-        visitDate: form.visitDate + 'T10:00:00',
+        userId: Number(localStorage.getItem('userId')),
       };
       await axiosClient.post('/visits', payload);
       setForm({
@@ -47,7 +55,7 @@ function Visits() {
       });
       loadData();
     } catch (err) {
-      setError('Failed to create visit — check required fields');
+      setError(err.response?.data?.message || 'Failed to create visit — check required fields');
     }
   };
 
@@ -85,10 +93,9 @@ function Visits() {
     borderRadius: 4, color: '#e7eef7',
   };
 
-  // Apply filters client-side (customer, date range) — visitor rep filter
-  // isn't meaningful yet since we don't have a reps list endpoint.
   const filteredVisits = visits.filter((v) => {
     if (filters.customerId && String(v.customerId) !== String(filters.customerId)) return false;
+    if (filters.userId && String(v.userId) !== String(filters.userId)) return false;
     const visitDateOnly = v.visitDate?.split('T')[0];
     if (filters.dateFrom && visitDateOnly < filters.dateFrom) return false;
     if (filters.dateTo && visitDateOnly > filters.dateTo) return false;
@@ -99,24 +106,27 @@ function Visits() {
     <Layout>
       <h2>Visits</h2>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, maxWidth: 500 }}>
-        <select style={inputStyle} name="customerId" value={form.customerId} onChange={handleChange} required>
-          <option value="">Select Customer</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <input style={inputStyle} type="date" name="visitDate" value={form.visitDate} onChange={handleChange} required />
-        <input style={inputStyle} name="purpose" placeholder="Purpose" value={form.purpose} onChange={handleChange} required />
-        <textarea style={inputStyle} name="discussion" placeholder="Discussion notes" value={form.discussion} onChange={handleChange} required />
-        <input style={inputStyle} name="productInterest" placeholder="Product Interest" value={form.productInterest} onChange={handleChange} />
-        <input style={inputStyle} name="competitor" placeholder="Competitor" value={form.competitor} onChange={handleChange} />
-        <input style={inputStyle} name="requirement" placeholder="Requirement" value={form.requirement} onChange={handleChange} />
-        <input style={inputStyle} name="remarks" placeholder="Remarks" value={form.remarks} onChange={handleChange} />
-        <label>Follow-up date</label>
-        <input style={inputStyle} type="date" name="followUpDate" value={form.followUpDate} onChange={handleChange} required />
-        <button type="submit">Add Visit</button>
-      </form>
+      {canCreateVisit && (
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, maxWidth: 500 }}>
+          <select style={inputStyle} name="customerId" value={form.customerId} onChange={handleChange} required>
+            <option value="">Select Customer</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <label>Visit date &amp; time</label>
+          <input style={inputStyle} type="datetime-local" name="visitDate" value={form.visitDate} onChange={handleChange} required />
+          <input style={inputStyle} name="purpose" placeholder="Purpose" value={form.purpose} onChange={handleChange} required />
+          <textarea style={inputStyle} name="discussion" placeholder="Discussion notes" value={form.discussion} onChange={handleChange} required />
+          <input style={inputStyle} name="productInterest" placeholder="Product Interest" value={form.productInterest} onChange={handleChange} />
+          <input style={inputStyle} name="competitor" placeholder="Competitor" value={form.competitor} onChange={handleChange} />
+          <input style={inputStyle} name="requirement" placeholder="Requirement" value={form.requirement} onChange={handleChange} />
+          <input style={inputStyle} name="remarks" placeholder="Remarks" value={form.remarks} onChange={handleChange} />
+          <label>Follow-up date</label>
+          <input style={inputStyle} type="date" name="followUpDate" value={form.followUpDate} onChange={handleChange} required />
+          <button type="submit">Add Visit</button>
+        </form>
+      )}
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
@@ -131,11 +141,17 @@ function Visits() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <select style={inputStyle} name="userId" value={filters.userId} onChange={handleFilterChange}>
+          <option value="">All Reps</option>
+          {reps.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
         <input style={inputStyle} type="date" name="dateFrom" value={filters.dateFrom} onChange={handleFilterChange} />
         <span style={{ opacity: 0.5 }}>to</span>
         <input style={inputStyle} type="date" name="dateTo" value={filters.dateTo} onChange={handleFilterChange} />
-        {(filters.customerId || filters.dateFrom || filters.dateTo) && (
-          <button onClick={() => setFilters({ customerId: '', dateFrom: '', dateTo: '' })}>Clear</button>
+        {(filters.customerId || filters.userId || filters.dateFrom || filters.dateTo) && (
+          <button onClick={() => setFilters({ customerId: '', userId: '', dateFrom: '', dateTo: '' })}>Clear</button>
         )}
       </div>
 

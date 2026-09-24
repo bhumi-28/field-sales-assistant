@@ -8,11 +8,16 @@ import com.intellect.field_sales_backend.repository.AiInsightRepository;
 import com.intellect.field_sales_backend.repository.VisitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,12 +44,18 @@ public class AiInsightService {
         requestBody.put("remarks", visit.getRemarks());
 
         // Call the Python AI service
-        @SuppressWarnings("unchecked")
-        Map<String, Object> aiResult = restTemplate.postForObject(
-                aiServiceUrl + "/analyze-visit", requestBody, Map.class);
+        Map<String, Object> aiResult;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = restTemplate.postForObject(
+                    aiServiceUrl + "/analyze-visit", requestBody, Map.class);
+            aiResult = result;
+        } catch (RestClientException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI service unavailable: " + e.getMessage(), e);
+        }
 
         if (aiResult == null) {
-            throw new IllegalStateException("AI service returned an empty response");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI service returned an empty response");
         }
 
         // Validate enum values before persisting (per spec requirement)
@@ -68,6 +79,14 @@ public class AiInsightService {
         return toResponse(saved);
     }
 
+    // Powers the standalone AI Insights screen — every analyzed visit, newest first.
+    public List<AiInsightResponse> getAll() {
+        return aiInsightRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     private <E extends Enum<E>> E parseEnum(Class<E> enumClass, String value, String fieldName) {
         if (value == null) {
             throw new IllegalArgumentException("AI service did not return a value for: " + fieldName);
@@ -80,9 +99,15 @@ public class AiInsightService {
     }
 
     private AiInsightResponse toResponse(AiInsight insight) {
+        Visit visit = insight.getVisit();
         return AiInsightResponse.builder()
                 .id(insight.getId())
-                .visitId(insight.getVisit().getId())
+                .visitId(visit.getId())
+                .customerId(visit.getCustomer().getId())
+                .customerName(visit.getCustomer().getName())
+                .visitDate(visit.getVisitDate())
+                .productInterest(visit.getProductInterest())
+                .competitor(visit.getCompetitor())
                 .summary(insight.getSummary())
                 .sentiment(insight.getSentiment().name())
                 .opportunity(insight.getOpportunity().name())

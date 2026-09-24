@@ -3,6 +3,7 @@ package com.intellect.field_sales_backend.config;
 import com.intellect.field_sales_backend.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -58,6 +59,13 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                // ADMIN only
+                .requestMatchers(HttpMethod.POST, "/api/customers", "/api/customers/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/customers/**").hasRole("ADMIN")
+                .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/ai/insights").hasRole("ADMIN")
+                // everything else: any logged-in user (ADMIN or SALES_REP)
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

@@ -29,7 +29,7 @@ public class CustomerService {
         customer.setEmail(request.getEmail());
         customer.setAddress(request.getAddress());
         customer.setCity(request.getCity());
-        customer.setStatus(Customer.Status.ACTIVE);
+        customer.setStatus(request.getStatus() != null ? request.getStatus() : Customer.Status.ACTIVE);
 
         if (request.getAssignedUserId() != null) {
             User user = userRepository.findById(request.getAssignedUserId())
@@ -64,9 +64,7 @@ public class CustomerService {
         customer.setEmail(request.getEmail());
         customer.setAddress(request.getAddress());
         customer.setCity(request.getCity());
-        if (customer.getStatus() == null) {
-            customer.setStatus(Customer.Status.ACTIVE);
-        }
+        customer.setStatus(request.getStatus() != null ? request.getStatus() : Customer.Status.ACTIVE);
 
         if (request.getAssignedUserId() != null) {
             User user = userRepository.findById(request.getAssignedUserId())

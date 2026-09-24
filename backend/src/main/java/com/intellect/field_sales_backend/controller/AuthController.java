@@ -6,10 +6,12 @@ import com.intellect.field_sales_backend.dto.RegisterRequest;
 import com.intellect.field_sales_backend.entity.User;
 import com.intellect.field_sales_backend.repository.UserRepository;
 import com.intellect.field_sales_backend.security.JwtUtil;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -30,11 +32,23 @@ public class AuthController {
 
     @PostMapping("/register")
     public String register(@RequestBody RegisterRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+        User.Role role;
+        try {
+            role = request.getRole() != null
+                    ? User.Role.valueOf(request.getRole().trim().toUpperCase())
+                    : User.Role.SALES_REP;
+        } catch (IllegalArgumentException e) {
+            role = User.Role.SALES_REP;
+        }
+
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(User.Role.valueOf(request.getRole()))
+                .role(role)
                 .build();
         userRepository.save(user);
         return "User registered with id: " + user.getId();
@@ -47,6 +61,6 @@ public class AuthController {
         );
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        return new LoginResponse(token, user.getName(), user.getRole().name());
+        return new LoginResponse(token, user.getId(), user.getName(), user.getRole().name());
     }
 }
